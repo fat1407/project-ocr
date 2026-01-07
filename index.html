@@ -76,7 +76,6 @@
 
     <textarea id="textResult" placeholder="Hasil teks akan muncul di sini..."></textarea>
     <div class="info" id="wordCount">Jumlah Kata: 0</div>
-    <div class="info" id="warning" style="color:#ff3b30; display:none">⚠️ Tidak ada kata terdeteksi</div>
     <button id="resetCount" style="background:#34c759">Reset Jumlah Kata</button>
     <div class="hint">Gunakan cahaya terang & tulisan jelas</div>
   </div>
@@ -88,9 +87,8 @@
     const resetBtn = document.getElementById('resetCount');
     const textResult = document.getElementById('textResult');
     const wordCountEl = document.getElementById('wordCount');
-    const warningEl = document.getElementById('warning');
 
-    let baseText = "";
+    let baseText = ""; // teks dasar sebelum reset hitung
 
     navigator.mediaDevices.getUserMedia({
       video: {
@@ -102,9 +100,7 @@
       video.srcObject = stream;
     }).catch(() => alert('Akses kamera gagal'));
 
-    async function prosesOCRRealtime() {
-      if (video.videoWidth === 0) return;
-
+    captureBtn.onclick = async () => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
@@ -112,42 +108,33 @@
       ctx.filter = 'grayscale(1) contrast(1.4) brightness(1.1)';
       ctx.drawImage(video, 0, 0);
 
+      captureBtn.textContent = 'Memproses...';
+      captureBtn.disabled = true;
+
       const { data: { text } } = await Tesseract.recognize(canvas, 'eng+ind', {
         tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
       });
 
-      textResult.value = text.trim();
+      baseText += ' ' + text;
+      textResult.value = baseText.trim();
       hitungKata();
-    }
 
-    captureBtn.onclick = async () => {
-      baseText += ' ' + textResult.value;
-      hitungKata();
+      captureBtn.textContent = 'Ambil Foto';
+      captureBtn.disabled = false;
     };
 
     function hitungKata() {
       const teks = textResult.value.toLowerCase();
       const hanyaKata = teks.match(/\b[a-zA-Z]+\b/g);
       const jumlah = hanyaKata ? hanyaKata.length : 0;
-
       wordCountEl.textContent = 'Jumlah Kata: ' + jumlah;
-
-      if (jumlah === 0) {
-        warningEl.style.display = 'block';
-      } else {
-        warningEl.style.display = 'none';
-      }
     }
 
     resetBtn.onclick = () => {
       baseText = "";
       textResult.value = "";
       wordCountEl.textContent = 'Jumlah Kata: 0';
-      warningEl.style.display = 'none';
     };
-
-    // Realtime OCR setiap 3 detik (aman untuk iOS)
-    setInterval(prosesOCRRealtime, 3000);
 
     textResult.addEventListener('input', hitungKata);
   </script>
