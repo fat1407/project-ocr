@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>OCR Tulisan Tangan iOS Optimized</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 14px;
+      background: #f2f2f7;
+    }
+    .container {
+      max-width: 480px;
+      margin: auto;
+      background: #ffffff;
+      padding: 14px;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+    }
+    video {
+      width: 100%;
+      border-radius: 12px;
+      background: black;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 12px;
+      background: #007aff;
+      color: white;
+      font-weight: 600;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    textarea {
+      width: 100%;
+      height: 140px;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid #d1d1d6;
+      font-size: 0.95rem;
+    }
+    .info {
+      margin-top: 8px;
+      font-weight: 600;
+      text-align: center;
+    }
+    .hint {
+      font-size: 0.75rem;
+      color: #666;
+      text-align: center;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>OCR Tulisan Tangan (iOS)</h1>
+
+    <video id="video" autoplay playsinline></video>
+    <button id="capture">Ambil Foto</button>
+    <canvas id="canvas" hidden></canvas>
+
+    <textarea id="textResult" placeholder="Hasil teks akan muncul di sini..."></textarea>
+    <div class="info" id="wordCount">Jumlah Kata: 0</div>
+    <div class="info" id="warning" style="color:#ff3b30; display:none">⚠️ Tidak ada kata terdeteksi</div>
+    <button id="resetCount" style="background:#34c759">Reset Jumlah Kata</button>
+    <div class="hint">Gunakan cahaya terang & tulisan jelas</div>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const captureBtn = document.getElementById('capture');
+    const resetBtn = document.getElementById('resetCount');
+    const textResult = document.getElementById('textResult');
+    const wordCountEl = document.getElementById('wordCount');
+    const warningEl = document.getElementById('warning');
+
+    let baseText = "";
+
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    }).then(stream => {
+      video.srcObject = stream;
+    }).catch(() => alert('Akses kamera gagal'));
+
+    async function prosesOCRRealtime() {
+      if (video.videoWidth === 0) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+
+      ctx.filter = 'grayscale(1) contrast(1.4) brightness(1.1)';
+      ctx.drawImage(video, 0, 0);
+
+      const { data: { text } } = await Tesseract.recognize(canvas, 'eng+ind', {
+        tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
+      });
+
+      textResult.value = text.trim();
+      hitungKata();
+    }
+
+    captureBtn.onclick = async () => {
+      baseText += ' ' + textResult.value;
+      hitungKata();
+    };
+
+    function hitungKata() {
+      const teks = textResult.value.toLowerCase();
+      const hanyaKata = teks.match(/\b[a-zA-Z]+\b/g);
+      const jumlah = hanyaKata ? hanyaKata.length : 0;
+
+      wordCountEl.textContent = 'Jumlah Kata: ' + jumlah;
+
+      if (jumlah === 0) {
+        warningEl.style.display = 'block';
+      } else {
+        warningEl.style.display = 'none';
+      }
+    }
+
+    resetBtn.onclick = () => {
+      baseText = "";
+      textResult.value = "";
+      wordCountEl.textContent = 'Jumlah Kata: 0';
+      warningEl.style.display = 'none';
+    };
+
+    // Realtime OCR setiap 3 detik (aman untuk iOS)
+    setInterval(prosesOCRRealtime, 3000);
+
+    textResult.addEventListener('input', hitungKata);
+  </script>
+</body>
+</html>
